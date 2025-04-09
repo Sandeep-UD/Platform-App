@@ -5,7 +5,8 @@ on:
     branches:
       - main
     paths:
-      - 'main-repo/**'
+      - 'Folder*/**'
+      - '!**/README.md'
 
 jobs:
   sync-libraries:
