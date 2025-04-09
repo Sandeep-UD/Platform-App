@@ -1,0 +1,102 @@
+name: Full Bi-Directional Library Sync
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'Folder*/**'
+      - '!**/README.md'
+
+jobs:
+  sync-libraries:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Main Repo
+        uses: actions/checkout@v3
+        with:
+          path: main-repo
+          fetch-depth: 2
+
+      - name: Checkout Base Repo
+        uses: actions/checkout@v3
+        with:
+          repository: Rajesh-playground/Base-Repo
+          token: ${{ secrets.GH_PAT }}
+          path: base-repo
+
+      - name: Copy base libraries to Main Repo folders
+        run: |
+          echo "⬇️ Copying from Base-Repo to Main-Repo folders..."
+          for folder in main-repo/Folder*/; do
+            mkdir -p "$folder/library"
+            cp base-repo/*.py "$folder/library/" 2>/dev/null || true
+            cp base-repo/*.sh "$folder/library/" 2>/dev/null || true
+            cp base-repo/*.java "$folder/library/" 2>/dev/null || true
+          done
+
+      - name: Detect and Sync Changes Across Folders
+        run: |
+          echo "🔁 Detecting and syncing library changes..."
+          cd main-repo
+          git config --global user.email "actions@github.com"
+          git config --global user.name "GitHub Actions"
+
+          git diff --name-only HEAD~1 HEAD > ../changed.txt || true
+          cat ../changed.txt || true
+
+          updated_files=""
+
+          while read -r file; do
+            if [[ "$file" == Folder*/library/* ]]; then
+              src_folder=$(echo "$file" | cut -d'/' -f1)
+              filename=$(basename "$file")
+              src_file="$src_folder/library/$filename"
+
+              echo "🔍 Propagating $filename from $src_folder..."
+
+              for target in Folder*/; do
+                target=${target%/}
+                if [[ "$target" != "$src_folder" ]]; then
+                  target_file="$target/library/$filename"
+                  mkdir -p "$(dirname "$target_file")"
+                  if [[ ! -f "$target_file" ]] || ! cmp -s "$src_file" "$target_file"; then
+                    cp "$src_file" "$target_file"
+                    touch "$target_file"
+                    updated_files="yes"
+                    echo "✅ Synced $target_file"
+                  fi
+                fi
+              done
+            fi
+          done < ../changed.txt
+
+          if [[ "$updated_files" == "yes" ]]; then
+            git add .
+            if ! git diff --cached --quiet; then
+              git commit -m "Synced updated library files across folders"
+              git push origin main
+            else
+              echo "⚠️ Files copied but no actual git diff detected."
+            fi
+          else
+            echo "📭 No library updates needed across folders."
+          fi
+
+      - name: Push updated library files to Base Repo
+        run: |
+          echo "📤 Syncing latest library files (from Folder1) to Base-Repo..."
+          cp main-repo/Folder1/library/* base-repo/ 2>/dev/null || true
+
+          cd base-repo
+          git config --global user.email "actions@github.com"
+          git config --global user.name "GitHub Actions"
+
+          git add .
+          if ! git diff --cached --quiet; then
+            git commit -m "Update shared library files from Main Repo"
+            git push origin main
+          else
+            echo "📪 No updates to push to Base Repo."
+          fi
