@@ -1,4 +1,4 @@
-name: Sync Libraries and Push
+name: Full Library Sync & Propagation
 
 on:
   push:
@@ -9,73 +9,95 @@ on:
       - '!**/README.md'
 
 jobs:
-  sync-libraries:
+  sync-libs:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: Platform-App
 
     steps:
-    - name: ⬇️ Checkout Platform-App
-      uses: actions/checkout@v3
-      with:
-        path: Platform-App
+      - name: Checkout Platform-App (Main Repo)
+        uses: actions/checkout@v3
+        with:
+          path: main-repo
+          fetch-depth: 2
 
-    - name: ⬇️ Checkout Platform-Libs
-      uses: actions/checkout@v3
-      with:
-        repository: Rajesh-playground/Platform-Libs
-        token: ${{ secrets.GITHUB_TOKEN }}
-        path: Platform-Libs
+      - name: Checkout Platform-Libs (Base Repo)
+        uses: actions/checkout@v3
+        with:
+          repository: Rajesh-playground/Platform-Libs
+          token: ${{ secrets.GH_PAT }}
+          path: base-repo
 
-    - name: ⬇️ Copy from Platform-Libs to Platform-App folders...
-      run: |
-        for folder in Platform-App/Folder*/; do
-          mkdir -p "$folder/library"
-          cp Platform-Libs/*.py "$folder/library/" 2>/dev/null || true
-          cp Platform-Libs/*.sh "$folder/library/" 2>/dev/null || true
-          cp Platform-Libs/*.java "$folder/library/" 2>/dev/null || true
-        done
-
-    - name: 🔁 Detecting and syncing library changes...
-      id: detect
-      run: |
-        cd Platform-App
-        git fetch origin main
-        git diff --name-only origin/main > ../changed.txt
-
-        echo "Changed files:"
-        cat ../changed.txt
-
-        updated_library="false"
-        for folder in Folder*/; do
-          libdir="$folder/library"
-          for file in $(ls $libdir 2>/dev/null); do
-            if grep -q "$libdir/$file" ../changed.txt; then
-              echo "📍 Change detected in: $libdir/$file"
-              updated_library="true"
-            fi
+      - name: Copy Base Libraries to Each Folder in Main Repo
+        run: |
+          echo "📥 Copying libraries from Base-Repo to Platform-App folders..."
+          for folder in main-repo/Folder*/; do
+            mkdir -p "$folder/library"
+            cp base-repo/*.py "$folder/library/" 2>/dev/null || true
+            cp base-repo/*.sh "$folder/library/" 2>/dev/null || true
+            cp base-repo/*.java "$folder/library/" 2>/dev/null || true
           done
-        done
 
-        echo "updated_library=$updated_library" >> $GITHUB_OUTPUT
+      - name: Detect Changed Library Files
+        run: |
+          cd main-repo
+          echo "🔍 Detecting changed library files..."
+          git config --global user.email "actions@github.com"
+          git config --global user.name "GitHub Actions"
+          git fetch
+          git checkout main
+          git diff --name-only HEAD~1 HEAD > ../changed.txt
 
-    - name: 📤 Sync latest library files (from Folder1) to Platform-Libs...
-      if: steps.detect.outputs.updated_library == 'true'
-      run: |
-        cp -v Platform-App/Folder1/library/*.py Platform-Libs/ 2>/dev/null || true
-        cp -v Platform-App/Folder1/library/*.sh Platform-Libs/ 2>/dev/null || true
-        cp -v Platform-App/Folder1/library/*.java Platform-Libs/ 2>/dev/null || true
+      - name: Sync Changed Library Files Across Folders
+        run: |
+          cd main-repo
+          echo "🔄 Syncing updated library files across folders..."
+          updated_files=""
 
-        cd Platform-Libs
-        git config user.name "github-actions[bot]"
-        git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          while read -r file; do
+            if [[ "$file" == Folder*/library/* ]]; then
+              src_folder=$(echo "$file" | cut -d'/' -f1)
+              filename=$(basename "$file")
+              src_file="$src_folder/library/$filename"
+              echo "🧪 Syncing $filename from $src_folder..."
 
-        git add .
-        if git diff --cached --quiet; then
-          echo "📪 No updates to push to Platform-Libs."
-        else
-          git commit -m "🔄 Sync updated library files from Folder1"
-          git push origin main
-          echo "✅ Pushed updated library files to Platform-Libs."
-        fi
+              for target in Folder*/; do
+                target=${target%/}
+                if [[ "$target" != "$src_folder" ]]; then
+                  target_file="$target/library/$filename"
+                  mkdir -p "$(dirname "$target_file")"
+                  if [[ ! -f "$target_file" ]] || ! cmp -s "$src_file" "$target_file"; then
+                    cp "$src_file" "$target_file"
+                    touch "$target_file"
+                    echo "✅ Synced $target_file"
+                    updated_files="yes"
+                  fi
+                fi
+              done
+            fi
+          done < ../changed.txt
+
+          if [[ "$updated_files" == "yes" ]]; then
+            git add .
+            if ! git diff --cached --quiet; then
+              echo "🔧 Committing synced changes..."
+              git commit -m "Synced updated library files across folders"
+              git push origin main
+            else
+              echo "⚠️ No actual changes detected for commit."
+            fi
+          else
+            echo "📭 No library updates needed across folders."
+          fi
+
+      - name: Push Updated Files to Platform-Libs (Base Repo)
+        run: |
+          echo "📤 Copying latest library files (from Folder1) to Platform-Libs..."
+          cp main-repo/Folder1/library/* base-repo/ 2>/dev/null || true
+          cd base-repo
+          git config --global user.email "actions@github.com"
+          git config --global user.name "GitHub Actions"
+          git add .
+          if ! git diff --cached --quiet; then
+            git commit -m "Update shared library files from Platform-App"
+            git push origin main
+          else
+            echo "📪 No updates to push to Platform-Libs."
