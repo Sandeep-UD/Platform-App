@@ -26,7 +26,7 @@ jobs:
       with:
         repository: Rajesh-playground/Platform-Libs
         token: ${{ secrets.GITHUB_TOKEN }}
-        path: base-repo
+        path: Platform-Libs
 
     - name: ⬇️ Copy from Platform-Libs to Platform-App folders...
       run: |
