@@ -101,3 +101,4 @@ jobs:
             git push origin main
           else
             echo "📪 No updates to push to Platform-Libs."
+          fi
