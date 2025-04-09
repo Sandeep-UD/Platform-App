@@ -32,9 +32,9 @@ jobs:
       run: |
         for folder in Platform-App/Folder*/; do
           mkdir -p "$folder/library"
-          cp base-repo/*.py "$folder/library/" 2>/dev/null || true
-          cp base-repo/*.sh "$folder/library/" 2>/dev/null || true
-          cp base-repo/*.java "$folder/library/" 2>/dev/null || true
+          cp Platform-Libs/*.py "$folder/library/" 2>/dev/null || true
+          cp Platform-Libs/*.sh "$folder/library/" 2>/dev/null || true
+          cp Platform-Libs/*.java "$folder/library/" 2>/dev/null || true
         done
 
     - name: 🔁 Detecting and syncing library changes...
@@ -60,7 +60,7 @@ jobs:
 
         echo "updated_library=$updated_library" >> $GITHUB_OUTPUT
 
-    - name: 📤 Sync latest library files (from Folder1) to Base-Repo...
+    - name: 📤 Sync latest library files (from Folder1) to Platform-Libs...
       if: steps.detect.outputs.updated_library == 'true'
       run: |
         cp -v Platform-App/Folder1/library/*.py Platform-Libs/ 2>/dev/null || true
