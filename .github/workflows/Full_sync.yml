@@ -6,7 +6,6 @@ on:
       - main
     paths:
       - 'main-repo/**'
-  workflow_dispatch:
 
 jobs:
   sync-libraries:
