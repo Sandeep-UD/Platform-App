@@ -13,24 +13,24 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: main-repo
+        working-directory: Platform-App
 
     steps:
-    - name: ⬇️ Checkout Main Repo
+    - name: ⬇️ Checkout Platform-App
       uses: actions/checkout@v3
       with:
-        path: main-repo
+        path: Platform-App
 
-    - name: ⬇️ Checkout Base Repo
+    - name: ⬇️ Checkout Platform-Libs
       uses: actions/checkout@v3
       with:
-        repository: Rajesh-playground/Base-Repo
+        repository: Rajesh-playground/Platform-Libs
         token: ${{ secrets.GITHUB_TOKEN }}
         path: base-repo
 
-    - name: ⬇️ Copy from Base-Repo to Main-Repo folders...
+    - name: ⬇️ Copy from Platform-Libs to Platform-App folders...
       run: |
-        for folder in main-repo/Folder*/; do
+        for folder in Platform-App/Folder*/; do
           mkdir -p "$folder/library"
           cp base-repo/*.py "$folder/library/" 2>/dev/null || true
           cp base-repo/*.sh "$folder/library/" 2>/dev/null || true
@@ -40,7 +40,7 @@ jobs:
     - name: 🔁 Detecting and syncing library changes...
       id: detect
       run: |
-        cd main-repo
+        cd Platform-App
         git fetch origin main
         git diff --name-only origin/main > ../changed.txt
 
@@ -63,19 +63,19 @@ jobs:
     - name: 📤 Sync latest library files (from Folder1) to Base-Repo...
       if: steps.detect.outputs.updated_library == 'true'
       run: |
-        cp -v main-repo/Folder1/library/*.py base-repo/ 2>/dev/null || true
-        cp -v main-repo/Folder1/library/*.sh base-repo/ 2>/dev/null || true
-        cp -v main-repo/Folder1/library/*.java base-repo/ 2>/dev/null || true
+        cp -v Platform-App/Folder1/library/*.py Platform-Libs/ 2>/dev/null || true
+        cp -v Platform-App/Folder1/library/*.sh Platform-Libs/ 2>/dev/null || true
+        cp -v Platform-App/Folder1/library/*.java Platform-Libs/ 2>/dev/null || true
 
-        cd base-repo
+        cd Platform-Libs
         git config user.name "github-actions[bot]"
         git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
         git add .
         if git diff --cached --quiet; then
-          echo "📪 No updates to push to Base Repo."
+          echo "📪 No updates to push to Platform-Libs."
         else
           git commit -m "🔄 Sync updated library files from Folder1"
           git push origin main
-          echo "✅ Pushed updated library files to Base Repo."
+          echo "✅ Pushed updated library files to Platform-Libs."
         fi
