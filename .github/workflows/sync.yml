@@ -11,32 +11,32 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Main Repo
+      - name: Checkout Platform-App (Main Repo)
         uses: actions/checkout@v3
         with:
-          path: main-repo
+          path: platform-app
 
-      - name: Checkout Base Repo
+      - name: Checkout Platform-Libs (Base Repo)
         uses: actions/checkout@v3
         with:
-          repository: Rajesh-playground/Platform-Libs  # ⬅️ Change this
+          repository: Rajesh-playground/Platform-Libs
           token: ${{ secrets.GH_PAT }}
-          path: Platform-Libs
+          path: platform-libs
 
-      - name: Copy base libraries to each folder in Main-Repo
+      - name: Copy base libraries to each folder in Platform-App
         run: |
-          echo "Copying libraries from Base-Repo to Main-Repo folders..."
-          for folder in Platform-App/Folder*/; do
+          echo "📥 Copying libraries from Platform-Libs to Platform-App folders..."
+          for folder in platform-app/Folder*/; do
             mkdir -p "$folder/library"
-            cp Platform-Libs/*.py "$folder/library/" 2>/dev/null || true
-            cp Platform-Libs/*.sh "$folder/library/" 2>/dev/null || true
-            cp Platform-Libs/*.java "$folder/library/" 2>/dev/null || true
+            cp platform-libs/*.py "$folder/library/" 2>/dev/null || true
+            cp platform-libs/*.sh "$folder/library/" 2>/dev/null || true
+            cp platform-libs/*.java "$folder/library/" 2>/dev/null || true
           done
 
-      - name: Detect and sync updates across folders
+      - name: Detect and sync updated library files across folders
         run: |
-          echo "Detecting updates and syncing library files..."
-          cd Platform-App
+          echo "🔍 Detecting updates and syncing library files..."
+          cd platform-app
           git config --global user.email "actions@github.com"
           git config --global user.name "GitHub Actions"
 
@@ -44,7 +44,7 @@ jobs:
           git diff --cached --name-only > changes.txt
 
           if [[ -s changes.txt ]]; then
-            echo "Changes detected:"
+            echo "📝 Changes detected:"
             cat changes.txt
 
             while read -r file; do
@@ -52,11 +52,11 @@ jobs:
               relative_file=$(echo "$file" | cut -d'/' -f3-)
 
               if [[ "$file" == */library/* ]]; then
-                echo "Propagating change in $relative_file from $folder..."
+                echo "🔁 Propagating change in $relative_file from $folder..."
 
                 for target in Folder*/; do
                   if [[ "$target" != "$folder/" && -f "$folder/library/$relative_file" ]]; then
-                    cp "$folder/library/$relative_file" "$target/library/$relative_file" || echo "Conflict in $relative_file → skipped"
+                    cp "$folder/library/$relative_file" "$target/library/$relative_file" || echo "⚠️ Conflict in $relative_file → skipped"
                   fi
                 done
               fi
@@ -66,22 +66,22 @@ jobs:
             git commit -m "Synced updated library files across folders"
             git push origin main
           else
-            echo "No library changes to sync."
+            echo "✅ No library changes to sync."
           fi
 
-      - name: Push updated library files to Base-Repo
+      - name: Push updated library files to Platform-Libs (Base Repo)
         run: |
-          echo "Syncing latest library files to Base-Repo..."
-          cp Platform-App/Folder1/library/* Platform-Libs/ 2>/dev/null || true
+          echo "📤 Syncing latest library files from Folder1 to Platform-Libs..."
+          cp platform-app/Folder1/library/* platform-libs/ 2>/dev/null || true
 
-          cd Platform-Libs
+          cd platform-libs
           git config --global user.email "actions@github.com"
           git config --global user.name "GitHub Actions"
 
           git add .
           if ! git diff --cached --quiet; then
-            git commit -m "Update shared library files from Main-Repo"
+            git commit -m "Update shared library files from Platform-App"
             git push origin main
           else
-            echo "No updates to push to Base-Repo."
+            echo "📪 No updates to push to Platform-Libs."
           fi
