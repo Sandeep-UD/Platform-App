@@ -76,17 +76,33 @@ jobs:
             echo "📭 No library updates needed across folders."
           fi
 
-      - name: Push updated files to Platform-Libs
-        run: |
-          echo "📤 Copying latest library files to Platform-Libs from $first_changed_folder..."
-          cp platform-app/$first_changed_folder/library/* platform-libs/ 2>/dev/null || true
-          cd platform-libs
-          git config --global user.email "actions@github.com"
-          git config --global user.name "GitHub Actions"
-          git add .
-          if ! git diff --cached --quiet; then
-            git commit -m "Update shared library files from $first_changed_folder"
-            git push origin main
-          else
-            echo "📪 No updates to push to Platform-Libs."
-          fi
+            - name: Push updated files to Platform-Libs
+              run: |
+                echo "📤 Copying latest library files from $first_changed_folder to Platform-Libs..."
+                if [[ -z "$first_changed_folder" ]]; then
+                  echo "❌ No changed folder detected, skipping push to Platform-Libs."
+                  exit 0
+                fi
+
+                cp platform-app/$first_changed_folder/library/* platform-libs/ 2>/dev/null || {
+                  echo "⚠️ No files copied. Skipping commit to Platform-Libs."
+                  exit 0
+                }
+
+                cd platform-libs
+                git config --global user.email "actions@github.com"
+                git config --global user.name "GitHub Actions"
+
+                echo "📄 Git status before commit:"
+                git status
+
+                git add .
+
+                if ! git diff --cached --quiet; then
+                  echo "✅ Changes detected. Committing..."
+                  git commit -m "Update shared library files from $first_changed_folder"
+                  git push origin main
+                else
+                  echo "📪 No updates to push to Platform-Libs."
+                fi
+
