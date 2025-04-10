@@ -69,6 +69,7 @@ jobs:
             fi
           else
             echo "📭 No library updates needed across folders."
+            fi
 
       - name: Push updated files to Platform-Libs
         run: |
