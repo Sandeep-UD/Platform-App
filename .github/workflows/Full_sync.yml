@@ -16,7 +16,7 @@ jobs:
       - name: Checkout Platform-App (Main Repo)
         uses: actions/checkout@v3
         with:
-          path: main-repo
+          path: platform-app
           fetch-depth: 2
 
       - name: Checkout Platform-Libs (Base Repo)
@@ -24,21 +24,21 @@ jobs:
         with:
           repository: Rajesh-playground/Platform-Libs
           token: ${{ secrets.GH_PAT }}
-          path: base-repo
+          path: platform-libs
 
-      - name: Copy Base Libraries to Each Folder in Main Repo
+      - name: Copy Base Libraries to Each Folder in Platform-App
         run: |
-          echo "📥 Copying libraries from Base-Repo to Platform-App folders..."
-          for folder in main-repo/Folder*/; do
+          echo "📥 Copying libraries from Platform-Libs to Platform-App folders..."
+          for folder in platform-app/Folder*/; do
             mkdir -p "$folder/library"
-            cp base-repo/*.py "$folder/library/" 2>/dev/null || true
-            cp base-repo/*.sh "$folder/library/" 2>/dev/null || true
-            cp base-repo/*.java "$folder/library/" 2>/dev/null || true
+            cp platform-libs/*.py "$folder/library/" 2>/dev/null || true
+            cp platform-libs/*.sh "$folder/library/" 2>/dev/null || true
+            cp platform-libs/*.java "$folder/library/" 2>/dev/null || true
           done
 
       - name: Detect Changed Library Files
         run: |
-          cd main-repo
+          cd platform-app
           echo "🔍 Detecting changed library files..."
           git config --global user.email "actions@github.com"
           git config --global user.name "GitHub Actions"
@@ -48,7 +48,7 @@ jobs:
 
       - name: Sync Changed Library Files Across Folders
         run: |
-          cd main-repo
+          cd platform-app
           echo "🔄 Syncing updated library files across folders..."
           updated_files=""
 
@@ -91,8 +91,8 @@ jobs:
       - name: Push Updated Files to Platform-Libs (Base Repo)
         run: |
           echo "📤 Copying latest library files (from Folder1) to Platform-Libs..."
-          cp main-repo/Folder1/library/* base-repo/ 2>/dev/null || true
-          cd base-repo
+          cp platform-app/Folder1/library/* platform-libs/ 2>/dev/null || true
+          cd platform-libs
           git config --global user.email "actions@github.com"
           git config --global user.name "GitHub Actions"
           git add .
