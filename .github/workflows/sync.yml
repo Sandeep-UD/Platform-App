@@ -1,0 +1,87 @@
+name: Full Library Sync & Update
+
+on:
+  push:
+    paths:
+      - 'Folder*/**'
+      - '!**/README.md'
+
+jobs:
+  sync-and-propagate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Main Repo
+        uses: actions/checkout@v3
+        with:
+          path: main-repo
+
+      - name: Checkout Base Repo
+        uses: actions/checkout@v3
+        with:
+          repository: Rajesh-playground/Platform-Libs  # ⬅️ Change this
+          token: ${{ secrets.GH_PAT }}
+          path: Platform-Libs
+
+      - name: Copy base libraries to each folder in Main-Repo
+        run: |
+          echo "Copying libraries from Base-Repo to Main-Repo folders..."
+          for folder in Platform-App/Folder*/; do
+            mkdir -p "$folder/library"
+            cp Platform-Libs/*.py "$folder/library/" 2>/dev/null || true
+            cp Platform-Libs/*.sh "$folder/library/" 2>/dev/null || true
+            cp Platform-Libs/*.java "$folder/library/" 2>/dev/null || true
+          done
+
+      - name: Detect and sync updates across folders
+        run: |
+          echo "Detecting updates and syncing library files..."
+          cd Platform-App
+          git config --global user.email "actions@github.com"
+          git config --global user.name "GitHub Actions"
+
+          git add .
+          git diff --cached --name-only > changes.txt
+
+          if [[ -s changes.txt ]]; then
+            echo "Changes detected:"
+            cat changes.txt
+
+            while read -r file; do
+              folder=$(echo "$file" | cut -d'/' -f1)
+              relative_file=$(echo "$file" | cut -d'/' -f3-)
+
+              if [[ "$file" == */library/* ]]; then
+                echo "Propagating change in $relative_file from $folder..."
+
+                for target in Folder*/; do
+                  if [[ "$target" != "$folder/" && -f "$folder/library/$relative_file" ]]; then
+                    cp "$folder/library/$relative_file" "$target/library/$relative_file" || echo "Conflict in $relative_file → skipped"
+                  fi
+                done
+              fi
+            done < changes.txt
+
+            git add .
+            git commit -m "Synced updated library files across folders"
+            git push origin main
+          else
+            echo "No library changes to sync."
+          fi
+
+      - name: Push updated library files to Base-Repo
+        run: |
+          echo "Syncing latest library files to Base-Repo..."
+          cp Platform-App/Folder1/library/* Platform-Libs/ 2>/dev/null || true
+
+          cd Platform-Libs
+          git config --global user.email "actions@github.com"
+          git config --global user.name "GitHub Actions"
+
+          git add .
+          if ! git diff --cached --quiet; then
+            git commit -m "Update shared library files from Main-Repo"
+            git push origin main
+          else
+            echo "No updates to push to Base-Repo."
+          fi
