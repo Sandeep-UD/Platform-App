@@ -33,20 +33,27 @@ jobs:
           git config --global user.name "GitHub Actions"
           git fetch
           git checkout main
+
           git diff --name-only HEAD~1 HEAD > ../changed.txt
           echo "📁 Changed files:"
           cat ../changed.txt || true
+
           updated_files=""
           first_changed_folder=""
+
           while read -r file; do
             if [[ "$file" == Folder*/library/* ]]; then
               src_folder=$(echo "$file" | cut -d'/' -f1)
               filename=$(basename "$file")
               src_file="$src_folder/library/$filename"
               echo "🔍 Checking $filename from $src_folder..."
+
+              # Save the first changed folder to GITHUB_ENV
               if [[ -z "$first_changed_folder" ]]; then
                 first_changed_folder="$src_folder"
+                echo "first_changed_folder=$first_changed_folder" >> $GITHUB_ENV
               fi
+
               for target in Folder*/; do
                 target=${target%/}
                 target_file="$target/library/$filename"
@@ -63,6 +70,7 @@ jobs:
               done
             fi
           done < ../changed.txt
+
           if [[ "$updated_files" == "yes" ]]; then
             git add .
             if ! git diff --cached --quiet; then
@@ -78,13 +86,14 @@ jobs:
 
       - name: Push updated files to Platform-Libs
         run: |
-          echo "📤 Copying latest library files from $first_changed_folder to Platform-Libs..."
-          if [[ -z "$first_changed_folder" ]]; then
+          echo "📤 Copying latest library files from ${{ env.first_changed_folder }} to Platform-Libs..."
+
+          if [[ -z "${{ env.first_changed_folder }}" ]]; then
             echo "❌ No changed folder detected, skipping push to Platform-Libs."
             exit 0
           fi
 
-          cp platform-app/$first_changed_folder/library/* platform-libs/ 2>/dev/null || {
+          cp platform-app/${{ env.first_changed_folder }}/library/* platform-libs/ 2>/dev/null || {
             echo "⚠️ No files copied. Skipping commit to Platform-Libs."
             exit 0
           }
@@ -100,9 +109,8 @@ jobs:
 
           if ! git diff --cached --quiet; then
             echo "✅ Changes detected. Committing..."
-            git commit -m "Update shared library files from $first_changed_folder"
+            git commit -m "Update shared library files from ${{ env.first_changed_folder }}"
             git push origin main
           else
-                  echo "📪 No updates to push to Platform-Libs."
+            echo "📪 No updates to push to Platform-Libs."
           fi
-
