@@ -25,7 +25,7 @@ jobs:
           token: ${{ secrets.GH_PAT }}
           path: platform-libs
 
-      - name: Compare and Sync Library Files Across Folders (only if exists)
+      - name: Compare and Sync Library Files Across Folders (Handle Updates & Deletions)
         run: |
           cd platform-app
           echo "🔁 Detecting and syncing library changes..."
@@ -34,13 +34,19 @@ jobs:
           git fetch
           git checkout main
 
+          # Detect changed and deleted files
           git diff --name-only HEAD~1 HEAD > ../changed.txt
+          git diff --diff-filter=D --name-only HEAD~1 HEAD > ../deleted.txt
+
           echo "📁 Changed files:"
           cat ../changed.txt || true
+          echo "🗑️ Deleted files:"
+          cat ../deleted.txt || true
 
           updated_files=""
           first_changed_folder=""
 
+          # Sync changed files across folders
           while read -r file; do
             if [[ "$file" == Folder*/library/* ]]; then
               src_folder=$(echo "$file" | cut -d'/' -f1)
@@ -48,7 +54,6 @@ jobs:
               src_file="$src_folder/library/$filename"
               echo "🔍 Checking $filename from $src_folder..."
 
-              # Save the first changed folder to GITHUB_ENV
               if [[ -z "$first_changed_folder" ]]; then
                 first_changed_folder="$src_folder"
                 echo "first_changed_folder=$first_changed_folder" >> $GITHUB_ENV
@@ -84,23 +89,28 @@ jobs:
             echo "📭 No library updates needed across folders."
           fi
 
-      - name: Push updated files to Platform-Libs
+          # Handle deletions: remove files from Platform-Libs
+          while read -r deleted_file; do
+            if [[ "$deleted_file" == Folder*/library/* ]]; then
+              filename=$(basename "$deleted_file")
+              echo "🗑️ Deleting $filename from Platform-Libs"
+              rm -f ../platform-libs/$filename
+              echo "deleted=true" >> $GITHUB_ENV
+            fi
+          done < ../deleted.txt
+
+      - name: Push updated or deleted files to Platform-Libs
         run: |
-          echo "📤 Copying latest library files from ${{ env.first_changed_folder }} to Platform-Libs..."
-
-          if [[ -z "${{ env.first_changed_folder }}" ]]; then
-            echo "❌ No changed folder detected, skipping push to Platform-Libs."
-            exit 0
-          fi
-
-          cp platform-app/${{ env.first_changed_folder }}/library/* platform-libs/ 2>/dev/null || {
-            echo "⚠️ No files copied. Skipping commit to Platform-Libs."
-            exit 0
-          }
+          echo "📤 Syncing changes to Platform-Libs..."
 
           cd platform-libs
           git config --global user.email "actions@github.com"
           git config --global user.name "GitHub Actions"
+
+          # Copy new/updated files from Platform-App
+          if [[ -n "${{ env.first_changed_folder }}" ]]; then
+            cp ../platform-app/${{ env.first_changed_folder }}/library/* . 2>/dev/null || echo "⚠️ No updated files to copy."
+          fi
 
           echo "📄 Git status before commit:"
           git status
@@ -108,9 +118,9 @@ jobs:
           git add .
 
           if ! git diff --cached --quiet; then
-            echo "✅ Changes detected. Committing..."
-            git commit -m "Update shared library files from ${{ env.first_changed_folder }}"
+            echo "✅ Committing synced or deleted files..."
+            git commit -m "Sync updates & deletions from Platform-App"
             git push origin main
           else
-            echo "📪 No updates to push to Platform-Libs."
+            echo "📪 No updates or deletions to push."
           fi
