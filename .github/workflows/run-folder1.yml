@@ -14,7 +14,7 @@ jobs:
           path: platform-app
 
       - name: List contents for debugging
-        run: ls -R Platform-App/Folder1
+        run: ls -R platform-app/Folder1
         working-directory: platform-app
 
       - name: Run main1.py
