@@ -14,9 +14,10 @@ jobs:
           path: platform-app
 
       - name: List contents for debugging
-        run: ls -R platform-app/Folder1
-        working-directory: platform-app
+        run: |
+          echo "Listing files in the Platform-App directory"
+          ls -R platform-app
+        working-directory: .
 
       - name: Run main1.py
-        run: python3 Code/main1.py
-        working-directory: platform-app/Folder1
+        run: python3 platform-app/Folder1/Code/main1.py
