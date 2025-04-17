@@ -1,5 +1,8 @@
 import sys
-sys.path.append('../library')
+import os
+
+# Add the library folder to the sys.path to import lib.py
+sys.path.append(os.path.join(os.path.dirname(__file__), '../library'))
 
 from lib import shared_util
 
