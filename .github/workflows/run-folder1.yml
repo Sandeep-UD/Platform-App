@@ -6,9 +6,6 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: Platform-App/Folder1/Code
 
     steps:
       - name: Checkout Platform-App
@@ -16,5 +13,10 @@ jobs:
         with:
           path: platform-app
 
+      - name: List contents for debugging
+        run: ls -R
+        working-directory: platform-app
+
       - name: Run main1.py
-        run: python3 main1.py
+        run: python3 Code/main1.py
+        working-directory: platform-app/Folder1
