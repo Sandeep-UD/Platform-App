@@ -1,8 +1,5 @@
 import sys
-import os
-
-# Add library folder to Python path
-sys.path.append(os.path.abspath('../library'))
+sys.path.append('../library')
 
 from lib import shared_util
 
