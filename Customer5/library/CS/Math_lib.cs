@@ -8,5 +8,3 @@ namespace MathLibrary
         }
     }
 }
-
-// commit from user-2
