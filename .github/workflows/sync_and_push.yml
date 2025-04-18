@@ -47,7 +47,7 @@ jobs:
           while read -r file; do
             if [[ "$file" == Customer*/library/* ]]; then
               src_folder=$(echo "$file" | cut -d'/' -f1)
-              relative_path="${file#*/library/}"  # extract path inside 'library/'
+              relative_path="${file#*/library/}"
               src_file="$src_folder/library/$relative_path"
 
               echo "🔍 Checking $relative_path from $src_folder..."
@@ -74,7 +74,9 @@ jobs:
             git add .
             if ! git diff --cached --quiet; then
               echo "🔧 Changes detected. Committing..."
-              git commit -m "Synced updated library files across customers (Triggered by GitHub Actions)"
+              author_name=$(git log -1 --pretty=format:'%an')
+              author_email=$(git log -1 --pretty=format:'%ae')
+              git commit -m "Synced updated library files across customers (original author: $author_name <$author_email>)"
               git push origin main
             else
               echo "⚠️ Files copied but no actual git diff detected."
@@ -102,7 +104,6 @@ jobs:
 
           cd ../platform-app
 
-          # Copy all updated files across all customers into platform-libs
           find Customer*/library/ -type f | while read file; do
             relative_path="${file#*/library/}"
             mkdir -p "../platform-libs/$(dirname "$relative_path")"
@@ -114,7 +115,9 @@ jobs:
 
           if ! git diff --cached --quiet; then
             echo "✅ Committing synced or deleted files..."
-            git commit -m "Sync updates & deletions from Platform-App (Triggered by GitHub Actions)"
+            author_name=$(git log -1 --pretty=format:'%an')
+            author_email=$(git log -1 --pretty=format:'%ae')
+            git commit -m "Sync updates & deletions from Platform-App (original author: $author_name <$author_email>)"
             git push origin main
           else
             echo "📪 No updates or deletions to push."
