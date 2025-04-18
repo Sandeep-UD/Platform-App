@@ -74,7 +74,7 @@ jobs:
             git add .
             if ! git diff --cached --quiet; then
               echo "🔧 Changes detected. Committing..."
-              git commit -m "Synced updated library files across customers"
+              git commit -m "Synced updated library files across customers (Triggered by GitHub Actions)"
               git push origin main
             else
               echo "⚠️ Files copied but no actual git diff detected."
@@ -114,7 +114,7 @@ jobs:
 
           if ! git diff --cached --quiet; then
             echo "✅ Committing synced or deleted files..."
-            git commit -m "Sync updates & deletions from Platform-App"
+            git commit -m "Sync updates & deletions from Platform-App (Triggered by GitHub Actions)"
             git push origin main
           else
             echo "📪 No updates or deletions to push."
