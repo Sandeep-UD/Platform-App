@@ -1,21 +1,15 @@
-name: Sync Library Changes and PR on Conflict
+name: Sync Library Changes Across Folders and Push to Platform-Libs
 
 on:
   push:
-    branches: [main]
-    paths:
-      - 'Customer*/library/**'
-
-  pull_request:
-    branches: [main]
+    branches:
+      - main
     paths:
       - 'Customer*/library/**'
 
 jobs:
-  sync-and-push:
+  sync-libraries:
     runs-on: ubuntu-latest
-    env:
-      LIBS_REPO: Rajesh-playground/Platform-Libs
 
     steps:
       - name: Checkout Platform-App
@@ -27,40 +21,50 @@ jobs:
       - name: Checkout Platform-Libs
         uses: actions/checkout@v3
         with:
-          repository: ${{ env.LIBS_REPO }}
+          repository: Rajesh-playground/Platform-Libs
           token: ${{ secrets.GH_PAT }}
           path: platform-libs
 
-      - name: Configure Git
-        run: |
-          git config --global user.name "GitHub Actions"
-          git config --global user.email "actions@github.com"
-
-      - name: Detect and Sync Changes
+      - name: Compare and Sync Library Files Across Folders (Handle Updates & Deletions)
         run: |
           cd platform-app
+          echo "🔁 Detecting and syncing library changes..."
+          git config --global user.email "actions@github.com"
+          git config --global user.name "GitHub Actions"
+          git fetch
+          git checkout main
+
           git diff --name-only HEAD~1 HEAD > ../changed.txt
           git diff --diff-filter=D --name-only HEAD~1 HEAD > ../deleted.txt
 
           echo "📁 Changed files:"
           cat ../changed.txt || true
+          echo "🗑️ Deleted files:"
+          cat ../deleted.txt || true
 
           updated_files=""
+
           while read -r file; do
             if [[ "$file" == Customer*/library/* ]]; then
               src_folder=$(echo "$file" | cut -d'/' -f1)
               relative_path="${file#*/library/}"
               src_file="$src_folder/library/$relative_path"
 
+              echo "🔍 Checking $relative_path from $src_folder..."
+
               for target in Customer*/; do
                 target=${target%/}
                 target_file="$target/library/$relative_path"
                 if [[ "$target" != "$src_folder" && -f "$target_file" ]]; then
                   if ! cmp -s "$src_file" "$target_file"; then
+                    mkdir -p "$(dirname "$target_file")"
                     cp "$src_file" "$target_file"
                     touch "$target_file"
+                    echo "✅ Synced $target_file"
                     updated_files="yes"
                   fi
+                else
+                  echo "⏩ Skipping $target_file (does not exist)"
                 fi
               done
             fi
@@ -69,45 +73,52 @@ jobs:
           if [[ "$updated_files" == "yes" ]]; then
             git add .
             if ! git diff --cached --quiet; then
-              git commit -m "Sync updated library files across customers"
+              echo "🔧 Changes detected. Committing..."
+              author_name=$(git log -1 --pretty=format:'%an')
+              author_email=$(git log -1 --pretty=format:'%ae')
+              git commit -m "Synced updated library files across customers (original author: $author_name <$author_email>)"
+              git push origin main
+            else
+              echo "⚠️ Files copied but no actual git diff detected."
             fi
+          else
+            echo "📭 No updates needed across customers."
           fi
 
-      - name: Sync to Platform-Libs
+          while read -r deleted_file; do
+            if [[ "$deleted_file" == Customer*/library/* ]]; then
+              relative_path="${deleted_file#*/library/}"
+              echo "🗑️ Deleting $relative_path from Platform-Libs"
+              rm -f "../platform-libs/$relative_path"
+              echo "deleted=true" >> $GITHUB_ENV
+            fi
+          done < ../deleted.txt
+
+      - name: Push updated or deleted files to Platform-Libs
         run: |
+          echo "📤 Syncing changes to Platform-Libs..."
+
           cd platform-libs
-          git checkout main
+          git config --global user.email "actions@github.com"
+          git config --global user.name "GitHub Actions"
 
           cd ../platform-app
-          for file in $(find Customer*/library/ -type f); do
+
+          find Customer*/library/ -type f | while read file; do
             relative_path="${file#*/library/}"
+            mkdir -p "../platform-libs/$(dirname "$relative_path")"
             cp "$file" "../platform-libs/$relative_path"
           done
 
           cd ../platform-libs
           git add .
-          git commit -m "Sync from Platform-App" || echo "No changes to commit"
 
-      - name: Try Push to Platform-Libs
-        id: try_push
-        continue-on-error: true
-        run: |
-          cd platform-libs
-          git push origin main
-
-      - name: Create Pull Request on Conflict
-        if: steps.try_push.outcome == 'failure'
-        run: |
-          echo "🛑 Merge conflict detected! Creating a pull request..."
-          cd platform-libs
-          git checkout -b sync-conflict-fix-${{ github.run_id }}
-          git push origin HEAD
-
-          gh pr create \
-            --title "🔀 Conflict: Sync from Platform-App" \
-            --body "This PR was auto-created due to merge conflicts while syncing from \`Platform-App\`. Please resolve manually.\
-            @codeowners or responsible team, please review." \
-            --base main \
-            --head sync-conflict-fix-${{ github.run_id }}
-        env:
-          GH_TOKEN: ${{ secrets.GH_PAT }}
+          if ! git diff --cached --quiet; then
+            echo "✅ Committing synced or deleted files..."
+            author_name=$(git log -1 --pretty=format:'%an')
+            author_email=$(git log -1 --pretty=format:'%ae')
+            git commit -m "Sync updates & deletions from Platform-App (original author: $author_name <$author_email>)"
+            git push origin main
+          else
+            echo "📪 No updates or deletions to push."
+          fi
