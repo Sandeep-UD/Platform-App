@@ -7,6 +7,12 @@ on:
     paths:
       - 'Customer*/library/**'
 
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'Customer*/library/**'
+
 jobs:
   sync-libraries:
     runs-on: ubuntu-latest
