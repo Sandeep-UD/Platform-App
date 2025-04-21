@@ -95,11 +95,25 @@ jobs:
             echo "📭 No updates needed across customers."
           fi
 
+          # Handling deletions: delete files from all customer folders
           while read -r deleted_file; do
             if [[ "$deleted_file" == Customer*/library/* ]]; then
               relative_path="${deleted_file#*/library/}"
-              echo "🗑️ Deleting $relative_path from Platform-Libs"
+              echo "🗑️ Deleting $relative_path from Platform-Libs and all customer folders"
+              
+              # Delete from all customers' folders
+              for target in Customer*/; do
+                target=${target%/}
+                target_file="$target/library/$relative_path"
+                if [ -f "$target_file" ]; then
+                  rm -f "$target_file"
+                  echo "Deleted $target_file"
+                fi
+              done
+
+              # Delete from Platform-Libs as well
               rm -f "../platform-libs/$relative_path"
+              echo "Deleted $relative_path from Platform-Libs"
               echo "deleted=true" >> $GITHUB_ENV
             fi
           done < ../deleted.txt
