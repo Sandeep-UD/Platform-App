@@ -43,14 +43,15 @@ jobs:
           if git rev-parse HEAD~1 >/dev/null 2>&1; then
             git diff --name-only HEAD~1 HEAD > ../changed.txt
             git diff --diff-filter=D --name-only HEAD~1 HEAD > ../deleted.txt
+            grep -vxFf ../deleted.txt ../changed.txt > ../filtered_changed.txt || true
           else
             echo "⚠️ Not enough commits to perform diff. Skipping sync."
-            touch ../changed.txt
+            touch ../filtered_changed.txt
             touch ../deleted.txt
           fi
 
-          echo "📁 Changed files:"
-          cat ../changed.txt || true
+          echo "📁 Changed files (excluding deleted):"
+          cat ../filtered_changed.txt || true
           echo "🗑️ Deleted files:"
           cat ../deleted.txt || true
 
@@ -77,7 +78,7 @@ jobs:
                 fi
               done
             fi
-          done < ../changed.txt
+          done < ../filtered_changed.txt
 
           if [[ "$updated_files" == "yes" ]]; then
             git add .
@@ -109,8 +110,8 @@ jobs:
           cd platform-libs
           git config --global user.email "actions@github.com"
           git config --global user.name "GitHub Actions"
-
           cd ../platform-app
+
           find Customer*/library/ -type f | while read file; do
             relative_path="${file#*/library/}"
             mkdir -p "../platform-libs/$(dirname "$relative_path")"
