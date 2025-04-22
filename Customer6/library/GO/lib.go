@@ -6,8 +6,4 @@ func SharedUtil() {
     fmt.Println("This is a shared function in Go")
 }
 
-// Updated from Platform-App
-
-// updated from Platform-Libs
-
-// Final from Platform-Libs
+// Updated from Platform-Libs
