@@ -9,3 +9,4 @@ func main() {
     fmt.Println("🐹 Hello from Go!")
     library.SharedUtil()
 }
+
