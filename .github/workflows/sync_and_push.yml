@@ -5,13 +5,13 @@ on:
     branches:
       - main
     paths:
-      - 'Customer*/library/**'
+      - '*/library/**'
 
   pull_request:
     branches:
       - main
     paths:
-      - 'Customer*/library/**'
+      - '*/library/**'
 
 jobs:
   sync-libraries:
@@ -56,13 +56,14 @@ jobs:
           cat ../deleted.txt || true
 
           updated_files=""
+
           while read -r file; do
-            if [[ "$file" == Customer*/library/* ]]; then
+            if [[ "$file" == */library/* ]]; then
               src_folder=$(echo "$file" | cut -d'/' -f1)
               relative_path="${file#*/library/}"
               src_file="$src_folder/library/$relative_path"
               echo "🔍 Checking $relative_path from $src_folder..."
-              for target in Customer*/; do
+              for target in */; do
                 target=${target%/}
                 target_file="$target/library/$relative_path"
                 if [[ "$target" != "$src_folder" && -f "$target_file" ]]; then
@@ -97,12 +98,12 @@ jobs:
 
           # Handling deletions: delete files from all customer folders
           while read -r deleted_file; do
-            if [[ "$deleted_file" == Customer*/library/* ]]; then
+            if [[ "$deleted_file" == */library/* ]]; then
               relative_path="${deleted_file#*/library/}"
               echo "🗑️ Deleting $relative_path from Platform-Libs and all customer folders"
               
               # Delete from all customers' folders
-              for target in Customer*/; do
+              for target in */; do
                 target=${target%/}
                 target_file="$target/library/$relative_path"
                 if [ -f "$target_file" ]; then
@@ -126,7 +127,7 @@ jobs:
           git config --global user.name "GitHub Actions"
           cd ../platform-app
 
-          find Customer*/library/ -type f | while read file; do
+          find */library/ -type f | while read file; do
             relative_path="${file#*/library/}"
             mkdir -p "../platform-libs/$(dirname "$relative_path")"
             cp "$file" "../platform-libs/$relative_path"
